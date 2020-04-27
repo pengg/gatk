@@ -4,10 +4,10 @@ import htsjdk.samtools.ValidationStringency;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.GATKPathSpecifier;
-import org.broadinstitute.hellbender.utils.io.IOUtils;
+import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.bundle.ReadsBundle;
 import org.broadinstitute.hellbender.utils.read.ReadConstants;
 
-import java.io.File;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
@@ -38,11 +38,64 @@ public abstract class ReadInputArgumentCollection implements Serializable {
             optional = true)
     protected List<GATKPathSpecifier> readIndices;
 
+    //Lazily computed the first time it is requested
+    private List<ReadIndexPair> readIndexPairs = null;
+
+    public static class ReadIndexPair{
+        private final GATKPathSpecifier reads;
+        private final GATKPathSpecifier index;
+
+        public ReadIndexPair(final GATKPathSpecifier reads, final GATKPathSpecifier index) {
+            this.reads = reads;
+            this.index = index;
+        }
+
+        public GATKPathSpecifier getReads() {
+            return reads;
+        }
+
+        public GATKPathSpecifier getIndex() {
+            return index;
+        }
+    }
+
     /**
-     * Get the list of BAM/SAM/CRAM files specified at the command line.
+     * Get the raw list of BAM/SAM/CRAM files specified at the command line.
      * Paths are the preferred format, as this can handle both local disk and NIO direct access to cloud storage.
+     * These will be processed to resolve bundle files.
      */
-    public abstract List<GATKPathSpecifier> getReadPathSpecifiers();
+    protected abstract List<GATKPathSpecifier> getRawReadPathSpecifiers();
+
+
+    public List<GATKPathSpecifier> getReadPathSpecifiers(){
+        if( readIndexPairs == null){
+            final List<GATKPathSpecifier> rawReadPathSpecifiers = getRawReadPathSpecifiers();
+            final int numberOfReadSourcesSpecified = rawReadPathSpecifiers.size();
+            final int numberOfReadIndexesSpecified = readIndices.size();
+            if( !readIndices.isEmpty() && numberOfReadSourcesSpecified != numberOfReadIndexesSpecified){
+                throw new UserException("If  --"+ StandardArgumentDefinitions.READ_INDEX_LONG_NAME + " is specified " +
+                        "it must be specified once for every read input that is specified. " +
+                        "\n Found " + numberOfReadSourcesSpecified +"  read sources and " + numberOfReadIndexesSpecified + " read indexes.");
+            }
+            for( int i = 0; i < numberOfReadSourcesSpecified ; i++){
+                //This has the problem where we can't identify a .json that doesn't have the right extension
+                final GATKPathSpecifier rawReadPath = rawReadPathSpecifiers.get(i);
+                final ReadIndexPair readIndexPair;
+                if( rawReadPath.getURI().getPath().endsWith(ReadsBundle.BUNDLE_EXTENSION)){
+                    if( !readIndices.isEmpty()){
+                        throw new UserException("You can specify read/index pairs with json read bundles " +
+                                "OR with the --"+ StandardArgumentDefinitions.READ_INDEX_LONG_NAME+ " argument but you cannot mix the two.");
+                    }
+                    final ReadsBundle readsBundle = ReadsBundle.fromPath(rawReadPath);
+                    readIndexPair = new ReadIndexPair(readsBundle.getReads(), readsBundle.getIndex());
+                } else {
+                    readIndexPair = new ReadIndexPair(rawReadPath, readIndices.get(i));
+                }
+                readIndexPairs.add(readIndexPair);
+            }
+        }
+        return readIndexPairs.stream().map(ReadIndexPair::getReads).collect(Collectors.toList());
+    }
 
     /**
      * Get the list of BAM/SAM/CRAM files specified at the command line.
@@ -64,8 +117,11 @@ public abstract class ReadInputArgumentCollection implements Serializable {
         if ( readIndices == null || readIndices.isEmpty() ) {
             return null;
         }
-
-        return readIndices.stream().map(GATKPathSpecifier::toPath).collect(Collectors.toList());
+        //TODO This has to do the initialization first
+        return readIndexPairs.stream()
+                .map(ReadIndexPair::getIndex)
+                .map(GATKPathSpecifier::toPath)
+                .collect(Collectors.toList());
     }
 
     /**
