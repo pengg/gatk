@@ -10,6 +10,8 @@ import org.broadinstitute.hellbender.utils.read.ReadConstants;
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -68,7 +70,13 @@ public abstract class ReadInputArgumentCollection implements Serializable {
 
 
     public List<GATKPathSpecifier> getReadPathSpecifiers(){
+        return getReadIndexPairs().stream().map(ReadIndexPair::getReads).collect(Collectors.toList());
+    }
+
+    public List<ReadIndexPair> getReadIndexPairs() {
+        //check if it's already been cached
         if( readIndexPairs == null){
+            //compute it if necessary
             final List<GATKPathSpecifier> rawReadPathSpecifiers = getRawReadPathSpecifiers();
             final int numberOfReadSourcesSpecified = rawReadPathSpecifiers.size();
             final int numberOfReadIndexesSpecified = readIndices.size();
@@ -77,31 +85,32 @@ public abstract class ReadInputArgumentCollection implements Serializable {
                         "it must be specified once for every read input that is specified. " +
                         "\n Found " + numberOfReadSourcesSpecified +"  read sources and " + numberOfReadIndexesSpecified + " read indexes.");
             }
+            final List<ReadIndexPair> pairs = new ArrayList<>(numberOfReadIndexesSpecified);
             for( int i = 0; i < numberOfReadSourcesSpecified ; i++){
                 //This has the problem where we can't identify a .json that doesn't have the right extension
                 final GATKPathSpecifier rawReadPath = rawReadPathSpecifiers.get(i);
-                final ReadIndexPair readIndexPair;
-                if( rawReadPath.getURI().getPath().endsWith(ReadsBundle.BUNDLE_EXTENSION)){
+                final ReadIndexPair pair;
+                if(ReadsBundle.looksLikeReadsBundle(rawReadPath)){
                     if( !readIndices.isEmpty()){
                         throw new UserException("You can specify read/index pairs with json read bundles " +
                                 "OR with the --"+ StandardArgumentDefinitions.READ_INDEX_LONG_NAME+ " argument but you cannot mix the two.");
                     }
                     final ReadsBundle readsBundle = ReadsBundle.fromPath(rawReadPath);
-                    readIndexPair = new ReadIndexPair(readsBundle.getReads(), readsBundle.getIndex());
+                    pair = new ReadIndexPair(readsBundle.getReads(), readsBundle.getIndex());
                 } else {
-                    readIndexPair = new ReadIndexPair(rawReadPath, readIndices.get(i));
+                    pair = new ReadIndexPair(rawReadPath, readIndices.get(i));
                 }
-                readIndexPairs.add(readIndexPair);
+                pairs.add(pair);
             }
+            readIndexPairs = Collections.unmodifiableList(pairs);
         }
-        return readIndexPairs.stream().map(ReadIndexPair::getReads).collect(Collectors.toList());
+        return readIndexPairs;
     }
 
     /**
      * Get the list of BAM/SAM/CRAM files specified at the command line.
      * Paths are the preferred format, as this can handle both local disk and NIO direct access to cloud storage.
      */
-
     public List<Path> getReadPaths() {
         return getReadPathSpecifiers().stream().map(GATKPathSpecifier::toPath).collect(Collectors.toList());
     }
@@ -117,8 +126,7 @@ public abstract class ReadInputArgumentCollection implements Serializable {
         if ( readIndices == null || readIndices.isEmpty() ) {
             return null;
         }
-        //TODO This has to do the initialization first
-        return readIndexPairs.stream()
+        return getReadIndexPairs().stream()
                 .map(ReadIndexPair::getIndex)
                 .map(GATKPathSpecifier::toPath)
                 .collect(Collectors.toList());
