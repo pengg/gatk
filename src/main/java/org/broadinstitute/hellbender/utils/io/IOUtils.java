@@ -1079,7 +1079,28 @@ public final class IOUtils {
      * @param toConvert File to convert to a Path
      * @return a Path, or null if the input was null.
      */
-    public static Path fileToPath(File toConvert) {
+    public static Path toPath(File toConvert) {
         return (null == toConvert ? null : toConvert.toPath());
     }
+
+    /**
+     * Convert GATKPathSpecifier to Path, returning null if input was null.
+     *
+     * @param toConvert GATKPathSpecifier to convert to a Path
+     * @return a Path, or null if the input was null.
+     */
+    public static Path toPath(GATKPathSpecifier toConvert){
+        return (null == toConvert ? null : toConvert.toPath());
+    }
+
+    /**
+     * Convert Path to GATKPathSpecifier, returning null if input was null.
+     *
+     * @param toConvert Path to convert to GATKPathSpecifier
+     * @return a Path, or null if the input was null.
+     */
+    public static GATKPathSpecifier toGATKPathSpecifier(Path toConvert){
+        return null == toConvert ? null : new GATKPathSpecifier(toConvert.toUri().toString());
+    }
+
 }

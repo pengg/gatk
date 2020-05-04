@@ -3,6 +3,8 @@ package org.broadinstitute.hellbender.engine;
 import htsjdk.samtools.*;
 import java.nio.channels.SeekableByteChannel;
 import java.util.function.Function;
+
+import org.broadinstitute.hellbender.cmdline.argumentcollections.ReadIndexPair;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.io.IOUtils;
@@ -624,7 +626,7 @@ public final class ReadsDataSourceUnitTest extends GATKBaseTest {
     public void testManuallySpecifiedIndicesWithCustomReaderFactory( final List<Path> bams, final List<Path> indices ) {
         final SamReaderFactory customFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.STRICT);
 
-        try ( final ReadsDataSource readsSource = new ReadsDataSource(bams, indices, customFactory) ) {
+        try ( final ReadsDataSource readsSource = new ReadsDataSource(ReadIndexPair.fromPathLists(bams, indices), customFactory) ) {
             Assert.assertTrue(readsSource.indicesAvailable(), "Explicitly-provided indices not detected for bams: " + bams);
 
             final Iterator<GATKRead> queryReads = readsSource.query(new SimpleInterval("1", 1, 300));
@@ -642,9 +644,9 @@ public final class ReadsDataSourceUnitTest extends GATKBaseTest {
         final SamReaderFactory customFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.STRICT);
         // ReadsDataSource should not be using the wrapper since the files are not on the Google cloud.
         // So we pass this invalid wrapper: if the code tries to use it, it'll blow up.
-        Function<SeekableByteChannel, SeekableByteChannel> nullWrapper = (SeekableByteChannel) -> null;
+        final Function<SeekableByteChannel, SeekableByteChannel> nullWrapper = (SeekableByteChannel) -> null;
 
-        try ( final ReadsDataSource readsSource = new ReadsDataSource(bams, indices, customFactory, nullWrapper, nullWrapper) ) {
+        try ( final ReadsDataSource readsSource = new ReadsDataSource(ReadIndexPair.fromPathLists(bams, indices), customFactory, nullWrapper, nullWrapper) ) {
             Assert.assertTrue(readsSource.indicesAvailable(), "Explicitly-provided indices not detected for bams: " + bams);
 
             final Iterator<GATKRead> queryReads = readsSource.query(new SimpleInterval("1", 1, 300));
@@ -676,10 +678,10 @@ public final class ReadsDataSourceUnitTest extends GATKBaseTest {
         final SamReaderFactory customFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.STRICT);
         // The input files are XOR'd with a constant. We use a wrapper to XOR it back.
         // If the code uses the wrong wrapper, or omits one, then the test will fail.
-        Function<SeekableByteChannel, SeekableByteChannel> xorData = XorWrapper.forKey((byte)74);
+        final Function<SeekableByteChannel, SeekableByteChannel> xorData = XorWrapper.forKey((byte)74);
         Function<SeekableByteChannel, SeekableByteChannel> xorIndex = XorWrapper.forKey((byte)80);
 
-        try ( final ReadsDataSource readsSource = new ReadsDataSource(bams, indices, customFactory, xorData, xorIndex) ) {
+        try ( final ReadsDataSource readsSource = new ReadsDataSource(ReadIndexPair.fromPathLists(bams, indices), customFactory, xorData, xorIndex) ) {
             Assert.assertTrue(readsSource.indicesAvailable(), "Explicitly-provided indices not detected for bams: " + bams);
 
             final Iterator<GATKRead> queryReads = readsSource.query(new SimpleInterval("1", 1, 300));

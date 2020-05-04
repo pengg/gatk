@@ -14,12 +14,14 @@ import htsjdk.samtools.util.CloseableIterator;
 import htsjdk.samtools.util.IOUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.broadinstitute.hellbender.cmdline.argumentcollections.ReadIndexPair;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.gcs.BucketUtils;
+import org.broadinstitute.hellbender.utils.io.IOUtils;
 import org.broadinstitute.hellbender.utils.iterators.SAMRecordToReadIterator;
 import org.broadinstitute.hellbender.utils.iterators.SamReaderQueryingIterator;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
@@ -47,7 +49,7 @@ import java.util.stream.Collectors;
  * -Targeted queries by one interval at a time
  */
 public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoCloseable {
-    protected static final Logger logger = LogManager.getLogger(ReadsDataSource.class);
+    private static final Logger logger = LogManager.getLogger(ReadsDataSource.class);
 
     /**
      * Mapping from SamReaders to iterators over the reads from each reader. Only one
@@ -116,20 +118,22 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
      * @param customSamReaderFactory SamReaderFactory to use, if null a default factory with no reference and validation
      *                               stringency SILENT is used.
      */
+    @Deprecated
     public ReadsDataSource( final Path samPath, SamReaderFactory customSamReaderFactory ) {
         this(samPath != null ? Arrays.asList(samPath) : null, customSamReaderFactory);
     }
 
     /**
-     * Initialize this data source with multiple SAM/BAM files and a custom SamReaderFactory
+     * Initialize this data source with a single SAM/BAM file and a custom SamReaderFactory
      *
-     * @param samPaths path to SAM/BAM file, not null.
+     * @param samPath path to SAM/BAM file, not null.
      * @param customSamReaderFactory SamReaderFactory to use, if null a default factory with no reference and validation
      *                               stringency SILENT is used.
      */
-    public ReadsDataSource( final List<Path> samPaths, SamReaderFactory customSamReaderFactory ) {
-        this(samPaths, null, customSamReaderFactory, 0, 0);
+    public ReadsDataSource( final GATKPathSpecifier samPath, SamReaderFactory customSamReaderFactory ) {
+        this(Ga) : null, customSamReaderFactory);
     }
+
 
     /**
      * Initialize this data source with multiple SAM/BAM/CRAM files, and explicit indices for those files.
@@ -138,6 +142,7 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
      * @param samIndices indices for all of the SAM/BAM/CRAM files, in the same order as samPaths. May be null,
      *                   in which case index paths are inferred automatically.
      */
+    @Deprecated
     public ReadsDataSource( final List<Path> samPaths, final List<Path> samIndices ) {
         this(samPaths, samIndices, null, 0, 0);
     }
@@ -146,15 +151,13 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
      * Initialize this data source with multiple SAM/BAM/CRAM files, explicit indices for those files,
      * and a custom SamReaderFactory.
      *
-     * @param samPaths paths to SAM/BAM/CRAM files, not null
-     * @param samIndices indices for all of the SAM/BAM/CRAM files, in the same order as samPaths. May be null,
-     *                   in which case index paths are inferred automatically.
+     * @param samAndIndexPaths pairs of paths to SAM/BAM/CRAM files and their indexes if present, not null
      * @param customSamReaderFactory SamReaderFactory to use, if null a default factory with no reference and validation
      *                               stringency SILENT is used.
      */
-    public ReadsDataSource( final List<Path> samPaths, final List<Path> samIndices,
-        SamReaderFactory customSamReaderFactory) {
-        this(samPaths, samIndices, customSamReaderFactory, 0, 0);
+    public ReadsDataSource(final List<ReadIndexPair> samAndIndexPaths,
+                           SamReaderFactory customSamReaderFactory) {
+        this(samAndIndexPaths, customSamReaderFactory, 0, 0);
     }
 
     /**
@@ -169,10 +172,29 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
      * @param cloudPrefetchBuffer MB size of caching/prefetching wrapper for the data, if on Google Cloud (0 to disable).
      * @param cloudIndexPrefetchBuffer MB size of caching/prefetching wrapper for the index, if on Google Cloud (0 to disable).
      */
+    @Deprecated
     public ReadsDataSource( final List<Path> samPaths, final List<Path> samIndices,
             SamReaderFactory customSamReaderFactory,
             int cloudPrefetchBuffer, int cloudIndexPrefetchBuffer) {
         this(samPaths, samIndices, customSamReaderFactory,
+                BucketUtils.getPrefetchingWrapper(cloudPrefetchBuffer),
+                BucketUtils.getPrefetchingWrapper(cloudIndexPrefetchBuffer));
+    }
+
+    /**
+     * Initialize this data source with multiple SAM/BAM/CRAM files, explicit indices for those files,
+     * and a custom SamReaderFactory.
+     *
+     * @param samAndIndexPaths pairs of paths to SAM/BAM/CRAM and their indexes if available, not null
+     * @param customSamReaderFactory SamReaderFactory to use, if null a default factory with no reference and validation
+     *                               stringency SILENT is used.
+     * @param cloudPrefetchBuffer MB size of caching/prefetching wrapper for the data, if on Google Cloud (0 to disable).
+     * @param cloudIndexPrefetchBuffer MB size of caching/prefetching wrapper for the index, if on Google Cloud (0 to disable).
+     */
+    public ReadsDataSource(final List<ReadIndexPair> samAndIndexPaths,
+                           SamReaderFactory customSamReaderFactory,
+                           int cloudPrefetchBuffer, int cloudIndexPrefetchBuffer) {
+        this(samAndIndexPaths, customSamReaderFactory,
                 BucketUtils.getPrefetchingWrapper(cloudPrefetchBuffer),
                 BucketUtils.getPrefetchingWrapper(cloudIndexPrefetchBuffer));
     }
@@ -190,6 +212,7 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
      * @param cloudWrapper caching/prefetching wrapper for the data, if on Google Cloud.
      * @param cloudIndexWrapper caching/prefetching wrapper for the index, if on Google Cloud.
      */
+    @Deprecated
     public ReadsDataSource( final List<Path> samPaths, final List<Path> samIndices,
         SamReaderFactory customSamReaderFactory,
         Function<SeekableByteChannel, SeekableByteChannel> cloudWrapper,
@@ -253,6 +276,71 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
             readers.put(reader, null);
             backingPaths.put(reader, samPath);
             ++samCount;
+        }
+
+        // Prepare a header merger only if we have multiple readers
+        headerMerger = samPaths.size() > 1 ? createHeaderMerger() : null;
+    }
+
+    /**
+     * Initialize this data source with multiple SAM/BAM/CRAM files, explicit indices for those files,
+     * and a custom SamReaderFactory.
+     *
+     * @param samPaths paths to pairs of SAM/BAM/CRAM files and their indexes if present.
+     * @param customSamReaderFactory SamReaderFactory to use, if null a default factory with no reference and validation
+     *                               stringency SILENT is used.
+     * @param cloudWrapper caching/prefetching wrapper for the data, if on Google Cloud.
+     * @param cloudIndexWrapper caching/prefetching wrapper for the index, if on Google Cloud.
+     */
+    public ReadsDataSource(final List<ReadIndexPair> samPaths,
+                           SamReaderFactory customSamReaderFactory,
+                           Function<SeekableByteChannel, SeekableByteChannel> cloudWrapper,
+                           Function<SeekableByteChannel, SeekableByteChannel> cloudIndexWrapper) {
+        Utils.nonNull(samPaths);
+        Utils.nonEmpty(samPaths, "ReadsDataSource cannot be created from empty file list");
+
+        readers = new LinkedHashMap<>(samPaths.size() * 2);
+        backingPaths = new LinkedHashMap<>(samPaths.size() * 2);
+        indicesAvailable = true;
+
+        final SamReaderFactory samReaderFactory =
+                customSamReaderFactory == null ?
+                        SamReaderFactory.makeDefault().validationStringency(ReadConstants.DEFAULT_READ_VALIDATION_STRINGENCY) :
+                        customSamReaderFactory;
+
+        for ( final ReadIndexPair samAndIndexPath : samPaths ) {
+            final Path samPath = samAndIndexPath.getReads().toPath();
+            final Path indexPath = IOUtils.toPath(samAndIndexPath.getIndex());
+
+            // Ensure each file can be read
+            IOUtils.assertFileIsReadable(samPath);
+            if ( indexPath != null ){
+                IOUtil.assertFileIsReadable(indexPath);
+            }
+
+            final Function<SeekableByteChannel, SeekableByteChannel> wrapper =
+                    BucketUtils.isEligibleForPrefetching(samPath)
+                            ? cloudWrapper
+                            : Function.identity();
+
+            final Function<SeekableByteChannel, SeekableByteChannel> indexWrapper =
+                    BucketUtils.isEligibleForPrefetching(indexPath)
+                            ? cloudIndexWrapper
+                            : Function.identity();
+
+            final SamInputResource samResource = SamInputResource.of(samPath, wrapper);
+            if( indexPath != null) {
+                samResource.index(indexPath, indexWrapper);
+            }
+            final SamReader reader = samReaderFactory.open(samResource);
+
+            // Ensure that each file has an index
+            if ( ! reader.hasIndex() ) {
+                indicesAvailable = false;
+            }
+
+            readers.put(reader, null);
+            backingPaths.put(reader, samPath);
         }
 
         // Prepare a header merger only if we have multiple readers

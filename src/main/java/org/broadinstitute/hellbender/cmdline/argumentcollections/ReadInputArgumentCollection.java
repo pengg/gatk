@@ -40,26 +40,11 @@ public abstract class ReadInputArgumentCollection implements Serializable {
             optional = true)
     protected List<GATKPathSpecifier> readIndices;
 
+    @Argument(fullName = "dont-infer-bam-indexes", doc = "Don't attempt to infer the location of bam indexes based on the filename.")
+    protected boolean dontInferBamIndexes = false;
+
     //Lazily computed the first time it is requested
     private List<ReadIndexPair> readIndexPairs = null;
-
-    public static class ReadIndexPair{
-        private final GATKPathSpecifier reads;
-        private final GATKPathSpecifier index;
-
-        public ReadIndexPair(final GATKPathSpecifier reads, final GATKPathSpecifier index) {
-            this.reads = reads;
-            this.index = index;
-        }
-
-        public GATKPathSpecifier getReads() {
-            return reads;
-        }
-
-        public GATKPathSpecifier getIndex() {
-            return index;
-        }
-    }
 
     /**
      * Get the raw list of BAM/SAM/CRAM files specified at the command line.
@@ -123,9 +108,6 @@ public abstract class ReadInputArgumentCollection implements Serializable {
      *         order as the read inputs.
      */
     public List<Path> getReadIndexPaths() {
-        if ( readIndices == null || readIndices.isEmpty() ) {
-            return null;
-        }
         return getReadIndexPairs().stream()
                 .map(ReadIndexPair::getIndex)
                 .map(GATKPathSpecifier::toPath)
@@ -137,4 +119,5 @@ public abstract class ReadInputArgumentCollection implements Serializable {
      * at the command line.
      */
     public ValidationStringency getReadValidationStringency() { return readValidationStringency; };
+
 }

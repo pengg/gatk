@@ -456,7 +456,7 @@ public abstract class GATKTool extends CommandLineProgram {
                 factory = factory.enable(SamReaderFactory.Option.CACHE_FILE_BASED_INDEXES);
             }
 
-            reads = new ReadsDataSource(readArguments.getReadPaths(), readArguments.getReadIndexPaths(), factory, cloudPrefetchBuffer,
+            reads = new ReadsDataSource(readArguments.getReadIndexPairs(), factory, cloudPrefetchBuffer,
                 (cloudIndexPrefetchBuffer < 0 ? cloudPrefetchBuffer : cloudIndexPrefetchBuffer));
         }
         else {
