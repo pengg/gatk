@@ -7,6 +7,7 @@ import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFHeader;
 import org.apache.commons.lang3.tuple.Pair;
 import org.broadinstitute.hellbender.engine.FeatureDataSource;
+import org.broadinstitute.hellbender.engine.GATKPathSpecifier;
 import org.broadinstitute.hellbender.engine.ReadsDataSource;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.param.ParamUtils;
@@ -109,7 +110,7 @@ public final class ReadTestUtils {
     public static Pair<SAMFileHeader, List<GATKRead>> readEntireBamIntoMemory(final String bamPath) {
         Utils.nonNull(bamPath);
 
-        try ( final ReadsDataSource bamReader = new ReadsDataSource(Paths.get(bamPath)) ) {
+        try ( final ReadsDataSource bamReader = new ReadsDataSource(new GATKPathSpecifier(bamPath)) ) {
             final SAMFileHeader header = bamReader.getHeader();
 
             final List<GATKRead> reads = new ArrayList<>();

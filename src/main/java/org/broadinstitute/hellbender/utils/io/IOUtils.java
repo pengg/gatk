@@ -1103,4 +1103,14 @@ public final class IOUtils {
         return null == toConvert ? null : new GATKPathSpecifier(toConvert.toUri().toString());
     }
 
+    /**
+     * Convert Path to GATKPathSpecifier, returning null if input was null.
+     *
+     * @param toConvert Path to convert to GATKPathSpecifier
+     * @return a Path, or null if the input was null.
+     */
+    public static GATKPathSpecifier toGATKPathSpecifier(File toConvert){
+        return null == toConvert ? null : new GATKPathSpecifier(toConvert.getAbsolutePath().toString());
+    }
+
 }

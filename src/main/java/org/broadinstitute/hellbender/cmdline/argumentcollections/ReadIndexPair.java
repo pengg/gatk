@@ -1,5 +1,7 @@
 package org.broadinstitute.hellbender.cmdline.argumentcollections;
 
+import htsjdk.samtools.SAMUtils;
+import htsjdk.samtools.SamFiles;
 import org.broadinstitute.hellbender.engine.GATKPathSpecifier;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.io.IOUtils;
@@ -45,5 +47,10 @@ public class ReadIndexPair {
         return IntStream.range(0, reads.size())
                 .mapToObj(i -> new ReadIndexPair(reads.get(i), indexes.get(i)))
                 .collect(Collectors.toList());
+    }
+
+    public static ReadIndexPair guessPairFromReads(GATKPathSpecifier reads){
+        final Path index = SamFiles.findIndex(reads.toPath());
+        return new ReadIndexPair(reads, IOUtils.toGATKPathSpecifier(index));
     }
 }

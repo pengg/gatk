@@ -18,6 +18,7 @@ import org.broadinstitute.hellbender.testutils.IntegrationTestSpec;
 import org.broadinstitute.hellbender.testutils.SamAssertionUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.gcs.BucketUtils;
+import org.broadinstitute.hellbender.utils.io.IOUtils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
@@ -179,7 +180,7 @@ public abstract class AbstractPrintReadsIntegrationTest extends CommandLineProgr
 
         runCommandLine(args);
 
-        try ( final ReadsDataSource outputReadsSource = new ReadsDataSource(outFile.toPath()) ) {
+        try (final ReadsDataSource outputReadsSource = new ReadsDataSource(IOUtils.toGATKPathSpecifier(outFile)) ) {
             final List<GATKRead> actualReads = new ArrayList<>();
             for ( final GATKRead read : outputReadsSource ) {
                 actualReads.add(read);
@@ -376,7 +377,7 @@ public abstract class AbstractPrintReadsIntegrationTest extends CommandLineProgr
     @Test()
     public void testUnSorted() throws Exception {
         final File inBam = new File(getTestDataDir(), "print_reads.unsorted.bam");
-        try (ReadsDataSource ds = new ReadsDataSource(inBam.toPath())){
+        try (ReadsDataSource ds = new ReadsDataSource(IOUtils.toGATKPathSpecifier(inBam))){
             Assert.assertEquals(ds.getHeader().getSortOrder(), SAMFileHeader.SortOrder.unsorted);
         }
         final File outBam = GATKBaseTest.createTempFile("print_reads", ".bam");

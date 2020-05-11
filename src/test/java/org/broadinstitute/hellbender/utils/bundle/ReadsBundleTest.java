@@ -32,14 +32,14 @@ public class ReadsBundleTest extends BaseTest {
     public void testRead(){
         final String json = "{\"reads\":{\"path\":\"a file\",\"fileType\":\"bam\"},\"index\":{\"path\":\"an index\",\"fileType\":\"bai\"}}";
         final ReadsBundle readsBundle1 = ReadsBundle.fromJson(json);
-        Assert.assertEquals(readsBundle1.getReads().getPath(), "a file");
+        Assert.assertEquals(readsBundle1.getReads(), "a file");
     }
 
     @Test
     public void testReadFromFile(){
         final GATKPathSpecifier json = getTestPath("reads1.json");
         final ReadsBundle readsBundle1 = ReadsBundle.fromPath(json);
-        Assert.assertEquals(readsBundle1.getReads().getPath(), "a file");
+        Assert.assertEquals(readsBundle1.getReads(), "a file");
     }
 
 

@@ -167,7 +167,7 @@ public final class ReadsSparkSource implements Serializable {
         // GCS case
         if (BucketUtils.isGcsUrl(filePathSpecifier)) {
             //TODO: fix ReadsDataSource to take  GATKPathSpecifier
-            try (ReadsDataSource readsDataSource = new ReadsDataSource(filePathSpecifier.toPath())) {
+            try (ReadsDataSource readsDataSource = new ReadsDataSource(filePathSpecifier)) {
                 return readsDataSource.getHeader();
             }
         }
