@@ -83,11 +83,13 @@ public final class ReadsDataSourceUnitTest extends GATKBaseTest {
     @Test(expectedExceptions = SAMFormatException.class)
     public void testCustomSamReaderFactory() {
         // Custom SamReaderFactory with validation stringency = STRICT fails on invalid coordinate sort
-        final ReadsDataSource readsSource = new ReadsDataSource(
+        try(final ReadsDataSource readsSource = new ReadsDataSource(
                 IOUtils.toGATKPathSpecifier(FIRST_TEST_SAM),
-                SamReaderFactory.makeDefault().validationStringency(ValidationStringency.STRICT));
-        //noinspection StatementWithEmptyBody
-        for ( @SuppressWarnings("unused") final GATKRead read : readsSource ) {
+                SamReaderFactory.makeDefault().validationStringency(ValidationStringency.STRICT))) {
+            ;
+            //noinspection StatementWithEmptyBody
+            for (@SuppressWarnings("unused") final GATKRead read : readsSource) {
+            }
         }
     }
 

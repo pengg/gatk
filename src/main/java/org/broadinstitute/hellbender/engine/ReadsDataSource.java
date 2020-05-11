@@ -193,15 +193,17 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
                             ? cloudWrapper
                             : Function.identity();
 
-            final Function<SeekableByteChannel, SeekableByteChannel> indexWrapper =
-                    BucketUtils.isEligibleForPrefetching(indexPath)
-                            ? cloudIndexWrapper
-                            : Function.identity();
 
             final SamInputResource samResource = SamInputResource.of(samPath, wrapper);
+
             if( indexPath != null) {
+                final Function<SeekableByteChannel, SeekableByteChannel> indexWrapper =
+                        BucketUtils.isEligibleForPrefetching(indexPath)
+                                ? cloudIndexWrapper
+                                : Function.identity();
                 samResource.index(indexPath, indexWrapper);
             }
+
             final SamReader reader = samReaderFactory.open(samResource);
 
             // Ensure that each file has an index
