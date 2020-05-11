@@ -53,7 +53,7 @@ public class ReadsBundle {
         return readsBundle;
     }
 
-    public static boolean looksLikeReadsBundle(final GATKPathSpecifier rawReadPath) {
+    public static boolean looksLikeAReadsBundle(final GATKPathSpecifier rawReadPath) {
         return rawReadPath.getURI().getPath().endsWith(BUNDLE_EXTENSION);
     }
 

@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.cmdline.argumentcollections;
 
 import htsjdk.samtools.ValidationStringency;
+import org.broadinstitute.barclay.argparser.Advanced;
 import org.broadinstitute.barclay.argparser.Argument;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.GATKPathSpecifier;
@@ -32,14 +33,17 @@ public abstract class ReadInputArgumentCollection implements Serializable {
             optional=true)
     protected ValidationStringency readValidationStringency = ReadConstants.DEFAULT_READ_VALIDATION_STRINGENCY;
 
+
     @Argument(fullName = StandardArgumentDefinitions.READ_INDEX_LONG_NAME, shortName = StandardArgumentDefinitions.READ_INDEX_SHORT_NAME,
             doc = "Indices to use for the read inputs. If specified, an index must be provided for every read input " +
                     "and in the same order as the read inputs. If this argument is not specified, the path to the index " +
-                    "for each input will be inferred automatically.",
+                    "for each input will be inferred automatically.  This argument is deprecated.  Use a read-bundle.json instead.",
             common = true,
             optional = true)
+    @Deprecated
     protected List<GATKPathSpecifier> readIndices;
 
+    @Advanced
     @Argument(fullName = "dont-infer-bam-indexes", doc = "Don't attempt to infer the location of bam indexes based on the filename.")
     protected boolean dontInferBamIndexes = false;
 
@@ -54,10 +58,18 @@ public abstract class ReadInputArgumentCollection implements Serializable {
     protected abstract List<GATKPathSpecifier> getRawReadPathSpecifiers();
 
 
+    /**
+     *
+     * @return
+     */
     public List<GATKPathSpecifier> getReadPathSpecifiers(){
         return getReadIndexPairs().stream().map(ReadIndexPair::getReads).collect(Collectors.toList());
     }
 
+    /**
+     * Get the matched pairs of BAM/SAM/CRAM and resolved indexes that were specified on the command line
+     * @return
+     */
     public List<ReadIndexPair> getReadIndexPairs() {
         //check if it's already been cached
         if( readIndexPairs == null){
@@ -70,48 +82,41 @@ public abstract class ReadInputArgumentCollection implements Serializable {
                         "it must be specified once for every read input that is specified. " +
                         "\n Found " + numberOfReadSourcesSpecified +"  read sources and " + numberOfReadIndexesSpecified + " read indexes.");
             }
+
+            if ( !readIndices.isEmpty() && rawReadPathSpecifiers.stream().anyMatch(ReadsBundle::looksLikeAReadsBundle)){
+                if( !readIndices.isEmpty()){
+                    throw new UserException("You can specify read/index pairs with json read bundles " +
+                            "OR with the --"+ StandardArgumentDefinitions.READ_INDEX_LONG_NAME+ " argument but you cannot mix the two.");
+                }
+            }
+
             final List<ReadIndexPair> pairs = new ArrayList<>(numberOfReadIndexesSpecified);
             for( int i = 0; i < numberOfReadSourcesSpecified ; i++){
-                //This has the problem where we can't identify a .json that doesn't have the right extension
+                //TODO This has the problem where we can't identify a .json that doesn't have the right extension
                 final GATKPathSpecifier rawReadPath = rawReadPathSpecifiers.get(i);
                 final ReadIndexPair pair;
-                if(ReadsBundle.looksLikeReadsBundle(rawReadPath)){
-                    if( !readIndices.isEmpty()){
-                        throw new UserException("You can specify read/index pairs with json read bundles " +
-                                "OR with the --"+ StandardArgumentDefinitions.READ_INDEX_LONG_NAME+ " argument but you cannot mix the two.");
-                    }
+                if(ReadsBundle.looksLikeAReadsBundle(rawReadPath)){
+                    //if it looks like a bundle, load it
                     final ReadsBundle readsBundle = ReadsBundle.fromPath(rawReadPath);
                     pair = new ReadIndexPair(readsBundle.getReads(), readsBundle.getIndex());
-                } else {
+                } else if (!readIndices.isEmpty()) {
+                    //if it isn't a bundle and we have read indexes provided than get it from the list
                     pair = new ReadIndexPair(rawReadPath, readIndices.get(i));
+                } else {
+                    //otherwise we have to decide to infer the index path or not
+                    if(dontInferBamIndexes) {
+                        //in this case we explicitly set the index to null since it wasn't specified
+                        pair = new ReadIndexPair(rawReadPath, null);
+                    } else {
+                        //otherwise we try to guess
+                        pair = ReadIndexPair.guessPairFromReads(rawReadPath);
+                    }
                 }
                 pairs.add(pair);
             }
             readIndexPairs = Collections.unmodifiableList(pairs);
         }
         return readIndexPairs;
-    }
-
-    /**
-     * Get the list of BAM/SAM/CRAM files specified at the command line.
-     * Paths are the preferred format, as this can handle both local disk and NIO direct access to cloud storage.
-     */
-    public List<Path> getReadPaths() {
-        return getReadPathSpecifiers().stream().map(GATKPathSpecifier::toPath).collect(Collectors.toList());
-    }
-
-    /**
-     * @return The list of indices to be used with the read inputs, or {@code null} if none were specified and the indices should be
-     *         inferred automatically.
-     *
-     *         If explicit indices are specified, they must be specified for all read inputs, and are assumed to be in the same
-     *         order as the read inputs.
-     */
-    public List<Path> getReadIndexPaths() {
-        return getReadIndexPairs().stream()
-                .map(ReadIndexPair::getIndex)
-                .map(GATKPathSpecifier::toPath)
-                .collect(Collectors.toList());
     }
 
     /**
