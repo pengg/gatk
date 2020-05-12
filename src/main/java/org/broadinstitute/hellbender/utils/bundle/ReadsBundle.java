@@ -24,8 +24,11 @@ public class ReadsBundle {
     private final BundleFile index;
     private final String schemaVersion;
 
+    public ReadsBundle(final GATKPathSpecifier reads, final GATKPathSpecifier index){
+        this(new BundleFile(reads, reads.getTag(FILE_TYPE_KEY)));
+    }
 
-    public ReadsBundle(final BundleFile reads, final BundleFile index) {
+    private ReadsBundle(final BundleFile reads, final BundleFile index) {
         this.schemaVersion = SCHEMA_VERSION;
         this.reads = reads;
         this.index = index;

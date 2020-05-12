@@ -1,7 +1,5 @@
 package org.broadinstitute.hellbender.utils.bundle;
 
-import org.broadinstitute.hellbender.engine.GATKPathSpecifier;
-
 class BundleFile {
     private final String path;
     private final String fileType;

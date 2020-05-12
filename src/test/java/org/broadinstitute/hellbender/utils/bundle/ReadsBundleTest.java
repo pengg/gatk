@@ -42,5 +42,4 @@ public class ReadsBundleTest extends BaseTest {
         Assert.assertEquals(readsBundle1.getReads(), "a file");
     }
 
-
 }
