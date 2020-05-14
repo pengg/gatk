@@ -24,6 +24,10 @@ public class SVClusterEngine extends LocatableClusterEngine<SVCallRecordWithEvid
         super(dictionary, CLUSTERING_TYPE.MAX_CLIQUE);
     }
 
+    public SVClusterEngine(final SAMSequenceDictionary dictionary, boolean depthOnly) {
+        super(dictionary, depthOnly ? CLUSTERING_TYPE.SINGLE_LINKAGE : CLUSTERING_TYPE.MAX_CLIQUE);
+    }
+
     /**
      * Find a single call representative of all the calls in the {@param cluster}
      * @param cluster   the events that are clustered together

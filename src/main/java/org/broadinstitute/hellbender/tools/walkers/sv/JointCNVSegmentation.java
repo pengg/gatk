@@ -68,7 +68,7 @@ public class JointCNVSegmentation extends MultiVariantWalkerGroupedOnStart {
         }
 
         defragmenter = new SVDepthOnlyCallDefragmenter(dictionary, 0.0);
-        clusterEngine = new SVClusterEngine(dictionary);
+        clusterEngine = new SVClusterEngine(dictionary, true);
 
         vcfWriter = getVCFWriter();
     }
@@ -93,7 +93,7 @@ public class JointCNVSegmentation extends MultiVariantWalkerGroupedOnStart {
     }
 
     /**
-     * @param variantContexts  VariantContexts from driving variants with matching start positon
+     * @param variantContexts  VariantContexts from driving variants with matching start position
      *                         NOTE: This will never be empty
      * @param referenceContext ReferenceContext object covering the reference of the longest spanning VariantContext
      * @param readsContexts
@@ -111,6 +111,12 @@ public class JointCNVSegmentation extends MultiVariantWalkerGroupedOnStart {
                 defragmenter.add(new SVCallRecordWithEvidence(record));
             }
         }
+    }
+
+    @Override
+    public Object onTraversalSuccess() {
+        processClusters();  //Don't forget to do the last cluster!!!
+        return null;
     }
 
     private void processClusters() {

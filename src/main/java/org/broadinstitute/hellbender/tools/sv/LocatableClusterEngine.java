@@ -135,14 +135,14 @@ public abstract class LocatableClusterEngine<T extends Locatable> {
             if (item.getStart() > clusterInterval.getEnd()) {
                 clusterIdsToProcess.add(clusterIndex);  //this cluster is complete -- process it when we're done
             } else {
-                if (clusteringType.equals(CLUSTERING_TYPE.SINGLE_LINKAGE)) {
+                if (clusteringType.equals(CLUSTERING_TYPE.MAX_CLIQUE)) {
                     final int n = (int) clusterItemIds.stream().filter(linkedItemIds::contains).count();
                     if (n == clusterItemIds.size()) {
                         clustersToAdd.add(clusterIndex);
                     } else if (n > 0) {
                         clustersToSeedWith.add(clusterIndex);
                     }
-                } else if (clusteringType.equals(CLUSTERING_TYPE.MAX_CLIQUE)) {
+                } else if (clusteringType.equals(CLUSTERING_TYPE.SINGLE_LINKAGE)) {
                     final boolean matchesCluster = clusterItemIds.stream().anyMatch(linkedItemIds::contains);
                     if (matchesCluster) {
                         clustersToAdd.add(clusterIndex);
