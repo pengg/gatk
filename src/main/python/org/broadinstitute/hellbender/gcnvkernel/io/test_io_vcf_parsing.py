@@ -10,6 +10,7 @@ class test_io_vcf_parsing(TestCase):
         pesky_sample_name = 'HG00099'
         contig = '9'
         debug_path = io.read_sample_segments_and_calls(pesky_intervals_vcf, clustered_vcf, pesky_sample_name, contig)
+        self.assertTrue(len(debug_path) == 25)
 
         clustered_vcf = '/Users/gauthier/workspaces/gatk/src/test/resources/org/broadinstitute/hellbender/tools/copynumber/clustering/threeSamples.vcf.gz'
         intervals_vcf = '/Users/gauthier/workspaces/gatk/src/test/resources/org/broadinstitute/hellbender/tools/copynumber/gcnv-postprocess/intervals_output_SAMPLE_000.vcf.gz'
@@ -17,12 +18,12 @@ class test_io_vcf_parsing(TestCase):
 
         contig = "1"
         path = io.read_sample_segments_and_calls(intervals_vcf, clustered_vcf, sample_name, contig)
-        # no segments on contig 1, so make one big interval
-        self.assertTrue(len(path) == 1)
+        # no segments on contig 1
+        self.assertTrue(len(path) == 0)
 
         contig = "2"
         path = io.read_sample_segments_and_calls(intervals_vcf, clustered_vcf, sample_name, contig)
-        self.assertTrue(len(path) == 3)
+        self.assertTrue(len(path) == 2)
 
         sample1_intervals_vcf = '/Users/gauthier/workspaces/gatk/src/test/resources/org/broadinstitute/hellbender/tools/copynumber/gcnv-postprocess/intervals_output_SAMPLE_001.vcf.gz'
         sample1_name = 'SAMPLE_001'

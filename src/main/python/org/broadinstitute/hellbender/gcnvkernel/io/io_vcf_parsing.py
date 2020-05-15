@@ -19,61 +19,74 @@ def read_sample_segments_and_calls(intervals_vcf: str,
     :return: {copy number, start index, stop index (inclusive)}
     """
     intervals = vcf.Reader(filename=intervals_vcf)
+    intervals2 = vcf.Reader(filename=intervals_vcf)
     segments = vcf.Reader(filename=clustered_vcf)
 
-    tracker_position = -1
-    path = []
+    path: List[Tuple[int, int, int]] = []
     segment_start_index = 0
     segment_end_index = 0
-    segment_copy_number = 2
 
+    # A record corresponds to [CHROM,POS,REF,ALT]
     try:
-        intervals_iter = iter(intervals.fetch(contig))
+        interval_start_iter = iter(intervals.fetch(contig))
+        interval_end_iter = iter(intervals2.fetch(contig))
     except ValueError:
-        intervals_rec = None
+        print('ERROR: could not fetch intervals')
+        raise
     else:
-        intervals_rec = next(intervals_iter)
+        start_interval = next(interval_start_iter)
+        end_interval = next(interval_end_iter)
+        intervals_copy_number = try_getting_format_attribute(end_interval, sample_name, 'CN')
 
     try:
         segments_iter = iter(segments.fetch(contig))
     except ValueError:
-        segments_rec = None
+        print('WARN: no segments found on contig {0}'.format(contig))
+        return path
     else:
         segments_rec = next(segments_iter)
+        segment_copy_number = try_getting_format_attribute(segments_rec, sample_name, 'CN')
 
-    while intervals_rec is not None:
-        # A record corresponds to [CHROM,POS,REF,ALT], if the same it checks the metrics differences.
-        # start a (variant) segment, end previous segment
-        if segments_rec is not None and segments_rec.POS <= intervals_rec.POS:
-            intervals_copy_number = try_getting_format_attribute(intervals_rec, sample_name, 'CN')
-            segment_copy_number = try_getting_format_attribute(segments_rec, sample_name, 'CN')
-            # If the copy number is the same between the records
-            if intervals_copy_number != segment_copy_number:
-                print('maybe these should not have been merged if they have different copy numbers')
-        # continue a segment
-        elif segments_rec is not None and segments_rec.POS > try_getting_info_attribute(intervals_rec, 'END'):
-            segment_end_index += 1
-        # segments are used up
-        else:
-            segment_end_index += 1
-        # always advance the intervals
-        try:
-            intervals_rec = next(intervals_iter)
-        except StopIteration:
-            segment_end_index -= 1
-            path.append((segment_copy_number, segment_start_index, segment_end_index))
-            break
-        # advance the segments if necessary
-        if segments_rec is not None and try_getting_info_attribute(segments_rec, 'END') < intervals_rec.POS:
-            path.append((segment_copy_number, segment_start_index, segment_end_index))
-            segment_start_index = segment_end_index + 1
-            segment_end_index = segment_start_index
-            segment_copy_number = 2
+    # we assume segments are sorted by start, but may be overlapping
+    while segments_rec is not None and start_interval is not None:
+        # make sure interval start matches
+        while start_interval is not None and start_interval.POS < segments_rec.POS:
             try:
-                segments_rec = next(segments_iter)
+                start_interval = next(interval_start_iter)
+                segment_start_index += 1
+                end_interval = next(interval_end_iter)
+                segment_end_index = segment_start_index
             except StopIteration:
-                segments_rec = None
-                segments_iter = None
+                print('ERROR: ran out of intervals with unmatched segments remaining')
+                raise
+        # once start matches, move the interval end
+        while end_interval is not None and try_getting_info_attribute(segments_rec, 'END') > \
+                try_getting_info_attribute(end_interval, 'END') + 1:  # some sort of gCNV off-by-one error
+            try:
+                end_interval = next(interval_end_iter)
+                segment_end_index += 1
+                intervals_copy_number = try_getting_format_attribute(end_interval, sample_name, 'CN')
+            except StopIteration:
+                print('WARN: ran out of intervals with segment end unmatched')
+                end_interval = None
+
+        if intervals_copy_number != segment_copy_number:
+            print('Warning: maybe these should not have been merged if they have different copy numbers')
+        # add the segment
+        path.append((segment_copy_number, segment_start_index, segment_end_index))
+        # do this the dumb way because each reader gets the same iterator
+        segment_end_index = 0
+        interval_end_iter = iter(intervals2.fetch(contig))
+        end_interval = next(interval_end_iter)
+
+        # get the next segment
+        try:
+            segments_rec = next(segments_iter)
+            segment_copy_number = try_getting_format_attribute(segments_rec, sample_name, 'CN')
+        except StopIteration:
+            segments_rec = None
+            segments_iter = None
+
     return path
 
 
