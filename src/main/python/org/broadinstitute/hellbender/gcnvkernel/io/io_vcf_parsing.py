@@ -55,7 +55,7 @@ def read_sample_segments_and_calls(intervals_vcf: str,
                 start_interval = next(interval_start_iter)
                 segment_start_index += 1
                 end_interval = next(interval_end_iter)
-                segment_end_index = segment_start_index
+                segment_end_index += 1
             except StopIteration:
                 print('ERROR: ran out of intervals with unmatched segments remaining')
                 raise
